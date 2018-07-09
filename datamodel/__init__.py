@@ -3,7 +3,7 @@ import json
 import datetime
 import typing
 from typing import Callable, Dict, Any, TypeVar, Type, Union, NewType
-from dataclasses import _is_dataclass_instance, fields, dataclass, is_dataclass
+from dataclasses import _is_dataclass_instance, fields, dataclass, is_dataclass, _set_new_attribute, _create_fn
 from datamodel import utils
 
 
@@ -101,9 +101,13 @@ def _structure_primitive(v, t):
     return t(v)
 
 
+@unstructure_hook('str')
+@unstructure_hook('int')
+@unstructure_hook('float')
+@unstructure_hook('bool')
 @structure_hook('Any')
 @structure_hook('None')
-def _direct_through(v, _):
+def _direct_through(v, _=None):
     return v
 
 
@@ -147,6 +151,26 @@ def _structure_value(t: Type[T], v: Any) -> T:
             return v
 
 
+def _build_from_dict(cls):
+    field_and_types = typing.get_type_hints(cls)
+
+    body_lines = []
+    globals = {'_structure_hooks': _structure_hooks, 'cls': cls}
+
+    for f in fields(cls):
+        # have to check case:
+        # * from __future__ import annotations
+        # * custom defined classes
+        # combination with late annotation etc
+        type_str = utils.type_to_str(field_and_types[(f.name)])
+        body_lines.append(f' {f.name}=_structure_hooks.get("{type_str}")(d["{f.name}"], {type_str}),\n')
+
+    return _create_fn('from_dict_new',
+                      ['cls', 'd'],
+                      ['return cls(\n'] + body_lines + [')'],
+                      globals=globals)
+
+
 def _json_load(cls: Type[T], json_str: JSONstr) -> T:
     return cls.from_dict(json.loads(json_str))
 
@@ -181,10 +205,12 @@ def datamodel(_cls=None, *, type_check=True, **dataclasskws):
 
     def wrapper(Cls):
         base = dataclass(**dataclasskws)(Cls)
-        setattr(base, 'to_serializeable', _to_serializeable)
-        setattr(base, 'from_dict', classmethod(_structure_dataclass))
-        setattr(base, 'to_json', _json_dump)
-        setattr(base, 'from_json', classmethod(_json_load))
+        # never overwrite existing attribute
+        _set_new_attribute(base, 'to_serializeable', _to_serializeable)
+        _set_new_attribute(base, 'from_dict', classmethod(_structure_dataclass))
+        _set_new_attribute(base, 'from_dict_new', classmethod(_build_from_dict(Cls)))
+        _set_new_attribute(base, 'to_json', _json_dump)
+        _set_new_attribute(base, 'from_json', classmethod(_json_load))
         return base
 
     # See if we're being called as @datamodel or @datamodel()
