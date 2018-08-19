@@ -111,6 +111,29 @@ class FooBarContainer:
 
 ```
 
+## Extensions
+
+If one wants to have some default kwargs passed to `dataclass` decorator one can register functions with `datamodel.dataclass_kwargs_extension`. The decorated functions will receive all kwargs given to `datamodel` decorator and must return dict containing the new kwags.
+
+There exists default extension `frozen` to make `datamodels` immutable by default. Same as decorating each class with `@datamodel(frozen=True)`
+
+```python
+import datamodel.extensions.frozen
+from datamodel import datamodel
+
+@datamodel
+class Simple:
+    x: int
+    y: str
+
+
+a = Simple(1, '2')
+a.x = 2  # raises dataclasses.FrozenInstanceError
+
+assert a.x == 1
+assert a.y == '2'
+```
+
 ## JSON encoder
 
 One can set custom JSON encoder if one wants so. This one is passed to `json.dumps` as `cls` kwarg.

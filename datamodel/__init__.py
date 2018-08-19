@@ -19,6 +19,7 @@ ISO8601str = str
 _json_encoder = json.JSONEncoder
 _structure_hooks = {}
 _unstructure_hooks = {}
+_dataclass_kwargs_extensions = []
 
 
 def is_datamodel(obj):
@@ -40,6 +41,11 @@ def register_unstructure_hook(type_name_str, decoder):
     _unstructure_hooks[type_name_str] = decoder
 
 
+def register_dataclass_kwargs_fn(fn):
+    global _dataclass_kwargs_extensions
+    _dataclass_kwargs_extensions.append(fn)
+
+
 def structure_hook(type_name_str: str):
     def wrapper(fn: Callable[[V], T]) -> Callable[[V], T]:
         register_structure_hook(type_name_str, fn)
@@ -52,6 +58,11 @@ def unstructure_hook(type_name_str: str):
         register_unstructure_hook(type_name_str, fn)
         return fn
     return wrapper
+
+
+def dataclass_kwargs_extension(fn):
+    register_dataclass_kwargs_fn(fn)
+    return fn
 
 
 # default hooks
@@ -277,12 +288,15 @@ def _json_dump(obj: T) -> JSONstr:
     return json.dumps(obj.to_serializeable(), cls=_json_encoder)
 
 
-def datamodel(_cls=None, *, type_check=True, **dataclasskws):
-    # TODO: move this to extension
-    dataclasskws = {**{'frozen': True}, **dataclasskws}
+_allowed_dataclasskws = ['init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen']
+
+
+def datamodel(_cls=None, **kwargs):
+    for fn in _dataclass_kwargs_extensions:
+        kwargs = fn(kwargs)
 
     def wrapper(Cls):
-        base = dataclass(**dataclasskws)(Cls)
+        base = dataclass(**{k: v for k, v in kwargs.items() if k in _allowed_dataclasskws})(Cls)
         # never overwrite existing attribute
         _set_new_attribute(base, 'to_serializeable', _to_serializeable)
         _set_new_attribute(base, 'from_dict', classmethod(_build_from_dict(Cls)))

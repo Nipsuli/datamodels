@@ -39,27 +39,6 @@ def test_type_to_str():
         assert expected == datamodel.utils.type_to_str(test)
 
 
-def test_datamodel_sets_frozen_true():
-    a = Simple(1, '2')
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        a.x = 2
-    assert a.x == 1
-    assert a.y == '2'
-
-
-@datamodel.datamodel(frozen=False)
-class SimpleNonFrozen:
-    x: int
-    y: str
-
-
-def test_non_frozen_datamodel():
-    a = SimpleNonFrozen(1, '2')
-    a.x = 2
-    assert a.x == 2
-    assert a.y == '2'
-
-
 def _assert_serialization_deserialization(obj, expected_dict, expected_json):
     serializeable_dict = obj.to_serializeable()
     assert expected_dict == serializeable_dict
