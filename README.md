@@ -62,7 +62,7 @@ Supported types:
 
 ## Stucturing and unstructuring hooks
 
-For missing types one can register custom (un)structuring functions with `structure_hook` and `unstructure_hook` decorators. One can override the default hooks as well. The argument to the hooks is basically the `__name__` attribute of the class. Check `test_type_to_str` for example cases.
+For missing types one can register custom (un)structuring functions with `structure_hook` and `unstructure_hook` decorators. One can override the default hooks as well. The argument to the hooks is basically the `__name__` attribute of the class. Check `test_type_to_str` for example cases. One is required to define both structure and unstructre hook.
 
 ```python
 import typing
@@ -97,7 +97,7 @@ foo_d = foo.to_serializeable()
 assert foo_d == d
 ```
 
-The hooks need to be registered *before* the `datamodel` definition as the decorator builds custom code for structuring. So in the example above the built `from_dict` function for `FooBarContainer` is similar as:
+The hooks need to be registered *before* the `datamodel` definition as the decorator builds custom code for (un)structuring. So in the example above the built `from_dict` and `to_serializeable` functions for `FooBarContainer` are similar as:
 ```python
 @dataclass
 class FooBarContainer:
@@ -108,6 +108,11 @@ class FooBarContainer:
         return cls(
             foo_bars=list(my_foobar_from_raw_data(v) for v in d["foo_bars"])
         )
+
+    def to_serializeable(self):
+        return {
+            'foo_bars': [my_foobar_to_raw_data(v) for v in self.foo_bars]
+        }
 
 ```
 
@@ -159,7 +164,6 @@ Otherwise pep8 but max line length is 120
 ## Todo
 * package to pypi
 * add CI
-* create class extension possibility, type checker could be one of those
 
 
 ## Background

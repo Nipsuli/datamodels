@@ -105,8 +105,12 @@ def test_nested_dataclasses():
     a = Simple(1, 'a')
     b = [Simple(i, 'b') for i in range(3)]
     c = {'c': Simple(3, 'c')}
+    dm = NestedDataClasses(a, b, c)
+    assert isinstance(dm.a, Simple)
+    assert all(isinstance(v, Simple) for v in dm.b)
+    assert all(isinstance(v, Simple) for v in dm.c.values())
     _assert_serialization_deserialization(
-        NestedDataClasses(a, b, c),
+        dm,
         expected_dict={
             'a': {'x': 1, 'y': 'a'},
             'b': [{'x': 0, 'y': 'b'}, {'x': 1, 'y': 'b'}, {'x': 2, 'y': 'b'}],
@@ -115,6 +119,22 @@ def test_nested_dataclasses():
         expected_json='{"a": {"x": 1, "y": "a"}, ' +
                       '"b": [{"x": 0, "y": "b"}, {"x": 1, "y": "b"}, {"x": 2, "y": "b"}], ' +
                       '"c": {"c": {"x": 3, "y": "c"}}}'
+    )
+
+
+@datamodel.datamodel
+class NestedDataClassesList:
+    a: typing.List[Simple]
+
+
+def test_nested_dataclasses_dataclass_only_in_nested_field():
+    d = {'a': [{'x': 0, 'y': 'b'}, {'x': 1, 'y': 'b'}, {'x': 2, 'y': 'b'}]}
+    dm = NestedDataClassesList.from_dict(d)
+    assert all(isinstance(v, Simple) for v in dm.a)
+    _assert_serialization_deserialization(
+        dm,
+        expected_dict=d,
+        expected_json='{"a": [{"x": 0, "y": "b"}, {"x": 1, "y": "b"}, {"x": 2, "y": "b"}]}'
     )
 
 
@@ -201,7 +221,9 @@ CapitalStr = typing.NewType('CapitalStr', str)
 
 
 def test_custom_hooks_for_custom_defined_types():
+    # one needs to define both
     @datamodel.structure_hook('CapitalStr')
+    @datamodel.unstructure_hook('CapitalStr')
     def capitalize(v):
         return v.capitalize()
 
@@ -291,6 +313,11 @@ def test_structuring_tuples_from_tuples():
     assert dm.a == (1, 2, 3)
     assert dm.b == (4, 'a', 'b')
     assert dm.c == ('1',)
+    _assert_serialization_deserialization(
+        dm,
+        expected_dict={'a': [1, 2, 3], 'b': [4, 'a', 'b'], 'c': ['1']},
+        expected_json='{"a": [1, 2, 3], "b": [4, "a", "b"], "c": ["1"]}'
+    )
 
 
 def test_structuring_tuples_from_other_iterables():
@@ -299,6 +326,11 @@ def test_structuring_tuples_from_other_iterables():
     assert dm.a == (0, 1, 2)
     assert dm.b == (4, 'a', 'b')
     assert dm.c == ('1',)
+    _assert_serialization_deserialization(
+        dm,
+        expected_dict={'a': [0, 1, 2], 'b': [4, 'a', 'b'], 'c': ['1']},
+        expected_json='{"a": [0, 1, 2], "b": [4, "a", "b"], "c": ["1"]}'
+    )
 
 
 @datamodel.datamodel
@@ -325,9 +357,43 @@ def test_structure_optional():
     d = {'x': 1}
     dm = WithOptional.from_dict(d)
     assert dm.x == 1
+    _assert_serialization_deserialization(
+        dm,
+        expected_dict=d,
+        expected_json='{"x": 1}'
+    )
     d = {'x': None}
     dm = WithOptional.from_dict(d)
     assert dm.x is None
+    _assert_serialization_deserialization(
+        dm,
+        expected_dict=d,
+        expected_json='{"x": null}'
+    )
+
+
+@datamodel.datamodel
+class WithOptionalObject:
+    x: typing.Optional[Simple]
+
+
+def test_structure_optional_with_object():
+    d = {'x': {'x': 1, 'y': '2'}}
+    dm = WithOptionalObject.from_dict(d)
+    assert isinstance(dm.x, Simple)
+    _assert_serialization_deserialization(
+        dm,
+        expected_dict=d,
+        expected_json='{"x": {"x": 1, "y": "2"}}'
+    )
+    d = {'x': None}
+    dm = WithOptionalObject.from_dict(d)
+    assert dm.x is None
+    _assert_serialization_deserialization(
+        dm,
+        expected_dict=d,
+        expected_json='{"x": null}'
+    )
 
 
 @datamodel.datamodel
@@ -336,12 +402,22 @@ class WithUnion:
 
 
 def test_stucture_union():
-    d = {'x': '1'}
+    d = {'x': 1}
     dm = WithUnion.from_dict(d)
     assert dm.x == 1
+    _assert_serialization_deserialization(
+        dm,
+        expected_dict=d,
+        expected_json='{"x": 1}'
+    )
     d = {'x': 'asdf'}
     dm = WithUnion.from_dict(d)
     assert dm.x == 'asdf'
+    _assert_serialization_deserialization(
+        dm,
+        expected_dict=d,
+        expected_json='{"x": "asdf"}'
+    )
 
 
 @datamodel.datamodel
@@ -380,3 +456,10 @@ def test_structuring_of_inner_dataclasses():
     dm = DataClassContainer.from_dict(d)
     assert dm.dc == InnerDataClass(**dc)
     assert dm.dcl == [InnerDataClass(**dc)]
+    dc_dict = {'x': 1, 'y': 'a', 'dt': dt.isoformat(), 'l': [1, 2]}
+    dc_json = f'{{"x": 1, "y": "a", "dt": "{dt.isoformat()}", "l": [1, 2]}}'
+    _assert_serialization_deserialization(
+        dm,
+        expected_dict={'dc': dc_dict, 'dcl': [dc_dict]},
+        expected_json=f'{{"dc": {dc_json}, "dcl": [{dc_json}]}}'
+    )

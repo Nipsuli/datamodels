@@ -31,12 +31,12 @@ def set_json_encoder(json_encoder):
     _json_encoder = json_encoder
 
 
-def register_structure_hook(type_name_str, decoder):
+def _register_structure_hook(type_name_str, decoder):
     global _structure_hooks
     _structure_hooks[type_name_str] = decoder
 
 
-def register_unstructure_hook(type_name_str, decoder):
+def _register_unstructure_hook(type_name_str, decoder):
     global _unstructure_hooks
     _unstructure_hooks[type_name_str] = decoder
 
@@ -48,14 +48,14 @@ def register_dataclass_kwargs_fn(fn):
 
 def structure_hook(type_name_str: str):
     def wrapper(fn: Callable[[V], T]) -> Callable[[V], T]:
-        register_structure_hook(type_name_str, fn)
+        _register_structure_hook(type_name_str, fn)
         return fn
     return wrapper
 
 
 def unstructure_hook(type_name_str: str):
     def wrapper(fn: Callable[[T], V]) -> Callable[[T], V]:
-        register_unstructure_hook(type_name_str, fn)
+        _register_unstructure_hook(type_name_str, fn)
         return fn
     return wrapper
 
@@ -80,14 +80,6 @@ def _to_str(v):
 @unstructure_hook('bytes')
 def _byte_decode(v):
     return v.decode('utf-8')
-
-
-@unstructure_hook('str')
-@unstructure_hook('int')
-@unstructure_hook('float')
-@unstructure_hook('bool')
-def _direct_through(v):
-    return v
 
 
 @structure_hook('datetime')
@@ -121,17 +113,6 @@ def _structure_bytes(v):
 
 
 # strcutring
-def _structure_dataclass(t: Type[T], v: Dict[str, Any]) -> T:
-    initkw = {}
-    field_and_types = typing.get_type_hints(t)
-    field_names = set(f.name for f in fields(t))  # just in case
-    for field_name, field_type in field_and_types.items():
-        if field_name in field_names and field_name in v:
-            initkw[field_name] = _structure_value(field_type, v[field_name])
-
-    return t(**initkw)
-
-
 def _structure_value(t: Type[T], v: Any) -> T:
     type_str = utils.type_to_str(t)
     hook = _structure_hooks.get(type_str)
@@ -162,6 +143,17 @@ def _structure_value(t: Type[T], v: Any) -> T:
             raise ValueError(f'No structure hook for type: {type_str}')
 
 
+def _structure_dataclass(t: Type[T], v: Dict[str, Any]) -> T:
+    initkw = {}
+    field_and_types = typing.get_type_hints(t)
+    field_names = set(f.name for f in fields(t))  # just in case
+    for field_name, field_type in field_and_types.items():
+        if field_name in field_names and field_name in v:
+            initkw[field_name] = _structure_value(field_type, v[field_name])
+
+    return t(**initkw)
+
+
 def _structure_union(t: Type[T], v: Any) -> T:
     for t_arg in t.__args__:
         try:
@@ -183,14 +175,14 @@ def _is_convert_with_type_str_structure_type(type_str):
 def _gen_structure_fn(t: Type[T], globs) -> Callable[[V], T]:
     type_str = utils.type_to_str(t)
     if _structure_hooks.get(type_str):
-        # yes, this is a nasty modification of input variable, shame on me
-        globs[f'structure_{type_str}'] = _structure_hooks.get(type_str)
+        globs[f'structure_{type_str}'] = _structure_hooks.get(type_str)  # nasty mutation, shame on me
         return f'structure_{type_str}'
     elif _is_direct_through_structure_type(type_str):
         return ''
     elif _is_convert_with_type_str_structure_type(type_str):
         return f'{type_str}'
     elif is_datamodel(t):
+        globs[t.__name__] = t  # nasty mutation, shame on me
         return f'{t.__name__}.from_dict'
     elif is_dataclass(t):
         return f'(lambda v: _structure_dataclass({t.__name__}, v))'
@@ -214,7 +206,7 @@ def _gen_structure_fn(t: Type[T], globs) -> Callable[[V], T]:
                 if len(t.__args__) == 2 and t.__args__[1] == type(None):  # noqa: E721: this is Optional[T]:
                     return f'(lambda v: None if v is None else {_gen_structure_fn(t.__args__[0], globs)}(v))'
                 else:
-                    # this is bit slower, but well
+                    # this is bit slower, but well, that's what you get for using Union
                     fname = f'stucture_{type_str}'.replace(' ', '').replace(']', '').replace('[', '_').replace(',', '')
                     globs[fname] = partial(_structure_union, t)
                     return f'{fname}'
@@ -258,26 +250,77 @@ def _build_from_dict(cls: Type[T]) -> Callable[[Type[T], Dict[str, Any]], T]:
 
 
 # un structuring
-def _to_serializeable(obj, dict_factory=dict):
-    # similar as dataclasses._asdict_inner, but adds handling for custom un structure hooks
-    # TODO: to work generally any Mapping and any Iterable
-    # TODO: code building for this as well
+def _to_serializeable(obj):
     hook = _unstructure_hooks.get(utils.type_to_str(type(obj)))
     if hook:
         return copy.deepcopy(hook(obj))
+    elif _is_direct_through_unstructure_type(utils.type_to_str(type(obj))):
+        return copy.deepcopy(obj)
     elif _is_dataclass_instance(obj):
-        result = []
-        for f in fields(obj):
-            value = _to_serializeable(getattr(obj, f.name), dict_factory)
-            result.append((f.name, value))
-        return dict_factory(result)
-    elif isinstance(obj, dict):  # should check that if is mapping and return dict always
-        return type(obj)((_to_serializeable(k, dict_factory), _to_serializeable(v, dict_factory))
-                         for k, v in obj.items())
-    elif isinstance(obj, (list, tuple)):  # should check if iterble and return always as list
-        return type(obj)(_to_serializeable(v, dict_factory) for v in obj)
+        return {f.name: _to_serializeable(getattr(obj, f.name)) for f in fields(obj)}
+    elif isinstance(obj, dict):
+        return {_to_serializeable(k): _to_serializeable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple, set, frozenset)):
+        return [_to_serializeable(v) for v in obj]
     else:
         raise ValueError(f'No unstructure hook for type: {type(obj)}')
+
+
+def _is_direct_through_unstructure_type(type_str):
+    return type_str in {'str', 'int', 'float', 'bool', 'None', 'Any'}
+
+
+def _gen_unstructure_expression(t, globs):
+    # retrurns str with '{}' so that callers can call
+    # return_str.format(<value expression>)
+    type_str = utils.type_to_str(t)
+    if _unstructure_hooks.get(type_str):
+        globs[f'unstructure_{type_str}'] = _unstructure_hooks.get(type_str)  # nasty mutation, shame on me
+        return f'unstructure_{type_str}({{}})'
+    elif _is_direct_through_unstructure_type(type_str):
+        return '{}'
+    elif is_datamodel(t):
+        globs[t.__name__] = t  # nasty mutation, shame on me
+        return '{}.to_serializeable()'
+    elif is_dataclass(t):
+        return '_to_serializeable({})'
+    else:
+        origin_type = getattr(t, '__origin__', None)
+        if origin_type:
+            if origin_type == dict:
+                key_expr = _gen_unstructure_expression(t.__args__[0], globs).format("k")
+                value_expr = _gen_unstructure_expression(t.__args__[1], globs).format("iv")
+                return f'dict(({key_expr}, {value_expr}) for k, iv in {{}}.items())'
+            elif origin_type in {list, tuple, set, frozenset}:
+                value_expr = _gen_unstructure_expression(t.__args__[0], globs).format("iv")
+                return f'[{value_expr} for iv in {{}}]'
+            elif origin_type == typing.Union:
+                if len(t.__args__) == 2 and t.__args__[1] == type(None):  # noqa: E721: this is Optional[T]:
+                    value_expr = _gen_unstructure_expression(t.__args__[0], globs).replace('{}', '{0}')
+                    return f'(None if {{0}} is None else {value_expr})'
+                else:
+                    return '_to_serializeable({})'
+        else:
+            raise ValueError(f'No unstructure hook function for type: {type_str}')
+
+
+def _build_to_serializeable(cls: Type[T]) -> Callable[[T], Dict[str, Any]]:
+    field_and_types = typing.get_type_hints(cls)
+    body_lines = []
+    globs = {
+        '_to_serializeable': _to_serializeable
+    }
+
+    for f in fields(cls):
+        # perhaps could have some mechanism for optionally filtering fields out
+        t = field_and_types[(f.name)]
+        get_attribute_str = f'self.{f.name}'
+        body_lines.append(f' "{f.name}": {_gen_unstructure_expression(t, globs).format(get_attribute_str)},\n')
+
+    return _create_fn('to_serializeable',
+                      ['self'],
+                      ['return {'] + body_lines + ['}'],
+                      globals=globs)
 
 
 def _json_load(cls: Type[T], json_str: JSONstr) -> T:
@@ -298,7 +341,7 @@ def datamodel(_cls=None, **kwargs):
     def wrapper(Cls):
         base = dataclass(**{k: v for k, v in kwargs.items() if k in _allowed_dataclasskws})(Cls)
         # never overwrite existing attribute
-        _set_new_attribute(base, 'to_serializeable', _to_serializeable)
+        _set_new_attribute(base, 'to_serializeable', _build_to_serializeable(Cls))
         _set_new_attribute(base, 'from_dict', classmethod(_build_from_dict(Cls)))
         _set_new_attribute(base, 'to_json', _json_dump)
         _set_new_attribute(base, 'from_json', classmethod(_json_load))
