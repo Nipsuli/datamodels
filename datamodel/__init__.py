@@ -241,7 +241,7 @@ def _build_from_dict(cls: Type[T]) -> Callable[[Type[T], Dict[str, Any]], T]:
                 value_getter = f'd.get("{f.name}", {f.name}_default_factory())'
             else:
                 value_getter = f'd["{f.name}"]'
-            body_lines.append(f' {f.name}={_gen_structure_fn(t, globs)}({value_getter}),\n')
+            body_lines.append(f'{f.name}={_gen_structure_fn(t, globs)}({value_getter}),\n')
 
     return _create_fn('from_dict',
                       ['cls', 'd'],
@@ -315,7 +315,7 @@ def _build_to_serializeable(cls: Type[T]) -> Callable[[T], Dict[str, Any]]:
         # perhaps could have some mechanism for optionally filtering fields out
         t = field_and_types[(f.name)]
         get_attribute_str = f'self.{f.name}'
-        body_lines.append(f' "{f.name}": {_gen_unstructure_expression(t, globs).format(get_attribute_str)},\n')
+        body_lines.append(f'"{f.name}": {_gen_unstructure_expression(t, globs).format(get_attribute_str)},\n')
 
     return _create_fn('to_serializeable',
                       ['self'],
