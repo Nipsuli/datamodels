@@ -146,6 +146,21 @@ def test_that_extrafields_are_ignored():
     assert WithDefaultValues(1, 1, []) == WithDefaultValues.from_dict({'x': 1, 'y': 1, 'extra_field': 'foo bar'})
 
 
+class Foo:
+    pass
+
+
+@datamodel.datamodel
+class AnyContainer:
+    a: typing.Any
+
+
+def test_any_goes_through_both_ways():
+    foo = Foo()
+    dm = AnyContainer.from_dict({'a': foo})
+    assert dm.a == foo
+
+
 def test_hooks_can_overwrite():
     @datamodel.structure_hook('str')
     def capitalize(v):
