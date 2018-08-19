@@ -1,10 +1,10 @@
 # Datamodel
 
-Basically extension to python 3.7 dataclass, implements methods: `to_json`, `to_serializeable`, `from_dict` and `from_json` to the classes for (de)serialization. If one uses `datamodel` decorator with kwargs, those kwargs are passed to `dataclass`.
+Drop in replacement for python 3.7 `dataclass`. Uses `dataclass` behind the scenes and implements methods: `to_json`, `to_serializeable`, `from_dict` and `from_json` to the classes for (de)serialization. If one uses `datamodel` decorator with kwargs, those kwargs are passed to `dataclass`. One can easily change (de)serialization behaviour with (un)structure hooks.
 
-(De-)Serializes also `datetime.date` and `datetime.datetime` -objects. That step happens in `to_serializeable`, so it's safe to call `json.dumps` on dicts returned by `to_serializeable`. Basically `to_json` does just that. Also `from_json` is just `from_dict(json.loads(stuff))`.
+(De-)Serializes also `datetime.date` and `datetime.datetime` -objects. Conversion to string happens in `to_serializeable`, so it's safe to call `json.dumps` on dicts returned by `to_serializeable`. Basically `to_json` does just that. Also `from_json` is just `from_dict(json.loads(stuff))`.
 
-In `from_dict` and `from_json` dates need to be ISO8601 formated strings so `YYYY-MM-DD` and datetimes  RFC3339 formated strings so `YYYY-MM-DDThh:mm:ss.msmsmsTZInfo` or `datetime` objects.
+In `from_json` dates need to be ISO8601 formated strings (`YYYY-MM-DD`) and datetimes  RFC3339 formated strings (`YYYY-MM-DDThh:mm:ss.msmsmsTZInfo`), `from_dict` accepts in addition `datetime.datetime` and `datetime.date` objects.
 
 ## Basic usage
 
@@ -39,7 +39,7 @@ assert json_str == '{"x": 1, "y": ["a", "b"], "dt": "2018-07-02T12:00:00+00:00"}
 
 Supported types:
 * Primitive values, `from_dict` runs them through the basic functions with same names
-  * e.g. if type is `int` we call to the value `int(v)` when structuring
+  * e.g. if type is `int` we call `int(v)` to the value when structuring
 * `Any` just through and through to both directions
 * `Optional`
 * `Union[T0, T1, ...]`
@@ -49,6 +49,7 @@ Supported types:
 * `Dict`
   * `from_dict` accepts any `Mapping`
 * `Tuple`
+  * `from_dict` accepts also `Iterable` as long as the tuple length is correct
   * `to_serializeable` converts into lists
 * `dataclass` and `datamodel` instances
   * `dataclass` handling slower than `datamodel` as `datamodel`s have generated code for structuring
