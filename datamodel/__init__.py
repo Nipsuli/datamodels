@@ -224,7 +224,7 @@ def _gen_structure_fn(t: Type[T], globs) -> Callable[[V], T]:
             raise ValueError(f'No structure hook function for type: {type_str}')
 
 
-def _build_from_dict(cls: Type[T]) -> Callable[[Type[T], Dict[Any, Any]], T]:
+def _build_from_dict(cls: Type[T]) -> Callable[[Type[T], Dict[str, Any]], T]:
     field_and_types = typing.get_type_hints(cls)
 
     body_lines = []
