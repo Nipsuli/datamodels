@@ -20,6 +20,7 @@ def test_type_to_str():
         (int, 'int'),
         (A, 'A'),
         (JSONstr, 'JSONstr'),
+        (datetime.datetime, 'datetime'),
         (typing.List, 'List[T]'),
         (typing.List[str], 'List[str]'),
         (Simple, 'Simple'),
@@ -79,6 +80,12 @@ def test_simple_model_serialization_deserialization():
     )
 
 
+def test_simple_model_serialization_converts_basic_types():
+    dm = Simple.from_dict({'x': '1', 'y': 2})
+    assert dm.x == 1
+    assert dm.y == '2'
+
+
 @datamodel.datamodel
 class WithDates:
     d: datetime.date
@@ -136,34 +143,62 @@ def test_nested_dataclasses():
 class WithDefaultValues:
     x: int
     y: int = 2
+    z: typing.List[int] = dataclasses.field(default_factory=list)
 
 
-def test_from_dict_with_not_enough_values():
-    assert WithDefaultValues(1) == WithDefaultValues.from_dict({'x': 1})
+def test_from_dict_with_not_enough_values_only_required():
+    assert WithDefaultValues(1, 2, []) == WithDefaultValues.from_dict({'x': 1})
+
+
+def test_from_dict_fails_for_missing_values_with_no_default():
+    with pytest.raises(KeyError):
+        WithDefaultValues.from_dict({'y': 1})
+
+
+def test_from_dict_with_not_enough_values_single_value_missing():
+    assert WithDefaultValues(1, 2, [1, 2]) == WithDefaultValues.from_dict({'x': 1, 'z': [1, 2]})
+
+
+def test_from_dict_with_not_enough_values_collection_value_missing():
+    assert WithDefaultValues(1, 3, []) == WithDefaultValues.from_dict({'x': 1, 'y': 3})
 
 
 def test_that_extrafields_are_ignored():
-    assert WithDefaultValues(1) == WithDefaultValues.from_dict({'x': 1, 'extra_field': 'foo bar'})
+    assert WithDefaultValues(1, 1, []) == WithDefaultValues.from_dict({'x': 1, 'y': 1, 'extra_field': 'foo bar'})
 
 
-def test_custom_hooks_are_overwriten():
-    default = datamodel._structure_hooks['str']
-
+def test_hooks_can_overwrite():
     @datamodel.structure_hook('str')
-    def capitalize(v, _):
+    def capitalize(v):
         return v.capitalize()
+
+    @datamodel.datamodel
+    class Simple:
+        x: int
+        y: str
 
     a = Simple.from_dict({'x': 1, 'y': 'foo'})
     assert a.y == 'Foo'
 
     @datamodel.structure_hook('str')
-    def take_first(v, _):
+    def take_first(v):
         return v[0]
+
+    @datamodel.datamodel
+    class Simple:
+        x: int
+        y: str
 
     a = Simple.from_dict({'x': 1, 'y': 'foo'})
     assert a.y == 'f'
 
-    datamodel._structure_hooks['str'] = default
+    datamodel._structure_hooks.pop('str')
+
+    @datamodel.datamodel
+    class Simple:
+        x: int
+        y: str
+
     a = Simple.from_dict({'x': 1, 'y': 'foo'})
     assert a.y == 'foo'
 
@@ -171,25 +206,31 @@ def test_custom_hooks_are_overwriten():
 CapitalStr = typing.NewType('CapitalStr', str)
 
 
-@datamodel.datamodel
-class WithCustomType:
-    foo: str
-    faa: CapitalStr
-
-
 def test_custom_hooks_for_custom_defined_types():
     @datamodel.structure_hook('CapitalStr')
-    def capitalize(v, _):
+    def capitalize(v):
         return v.capitalize()
+
+    @datamodel.datamodel
+    class WithCustomType:
+        foo: str
+        faa: CapitalStr
 
     a = WithCustomType.from_dict({'foo': 'monkey', 'faa': 'monkey'})
     assert a.foo == 'monkey'
     assert a.faa == 'Monkey'
-
     datamodel._structure_hooks.pop('CapitalStr')
-    a = WithCustomType.from_dict({'foo': 'monkey', 'faa': 'monkey'})
-    assert a.foo == 'monkey'
-    assert a.faa == 'monkey'
+
+
+def test_custom_hooks_are_required_for_custom_defined_types():
+
+    with pytest.raises(ValueError) as e:
+        @datamodel.datamodel
+        class WithCustomType:
+            foo: str
+            faa: CapitalStr
+
+    assert 'No structure hook function for type: CapitalStr' in str(e)
 
 
 @datamodel.datamodel
@@ -221,3 +262,127 @@ def test_primitive_values_from_dict():
     )
     assert a == expected
     assert a == PrimitiveValues.from_json(expected.to_json())
+
+
+@datamodel.datamodel
+class WithSets:
+    a: typing.Set[int]
+    b: typing.FrozenSet[int]
+
+
+def test_stucturing_sets():
+    d = {'a': {1, 2}, 'b': frozenset({4, 5})}
+    dm = WithSets.from_dict(d)
+    assert dm.a == {1, 2}
+    assert dm.b == frozenset({4, 5})
+
+
+def test_structuring_sets_from_other_iterables():
+    d = {'a': range(3), 'b': [5, 6]}
+    dm = WithSets.from_dict(d)
+    assert dm.a == {0, 1, 2}
+    assert dm.b == frozenset({5, 6})
+
+
+@datamodel.datamodel
+class WithTuples:
+    a: typing.Tuple[int, ...]
+    b: typing.Tuple[int, str, str]
+    c: typing.Tuple[str]
+
+
+def test_structuring_tuples_from_tuples():
+    d = {'a': (1, 2, 3), 'b': (4, 'a', 'b'), 'c': (1,)}
+    dm = WithTuples.from_dict(d)
+    assert dm.a == (1, 2, 3)
+    assert dm.b == (4, 'a', 'b')
+    assert dm.c == ('1',)
+
+
+def test_structuring_tuples_from_other_iterables():
+    d = {'a': range(3), 'b': [4, 'a', 'b'], 'c': [1]}
+    dm = WithTuples.from_dict(d)
+    assert dm.a == (0, 1, 2)
+    assert dm.b == (4, 'a', 'b')
+    assert dm.c == ('1',)
+
+
+@datamodel.datamodel
+class WithNoInit:
+    a: int
+    b: int = dataclasses.field(init=False, default=2)
+    c: int = dataclasses.field(init=False, default_factory=lambda: 3)
+
+
+def test_no_init_values():
+    d = {'a': 4}
+    dm = WithNoInit.from_dict(d)
+    assert dm.a == 4
+    assert dm.b == 2
+    assert dm.c == 3
+
+
+@datamodel.datamodel
+class WithOptional:
+    x: typing.Optional[int]
+
+
+def test_structure_optional():
+    d = {'x': 1}
+    dm = WithOptional.from_dict(d)
+    assert dm.x == 1
+    d = {'x': None}
+    dm = WithOptional.from_dict(d)
+    assert dm.x is None
+
+
+@datamodel.datamodel
+class WithUnion:
+    x: typing.Union[int, str]
+
+
+def test_stucture_union():
+    d = {'x': '1'}
+    dm = WithUnion.from_dict(d)
+    assert dm.x == 1
+    d = {'x': 'asdf'}
+    dm = WithUnion.from_dict(d)
+    assert dm.x == 'asdf'
+
+
+@datamodel.datamodel
+class WithUnion2:
+    x: typing.Union[int, float]
+
+
+def test_structure_union_fails():
+    d = {'x': '1'}
+    dm = WithUnion2.from_dict(d)
+    assert dm.x == 1
+    d = {'x': 'adsf'}
+    with pytest.raises(ValueError) as e:
+        dm = WithUnion2.from_dict(d)
+    assert 'Could not structure type: Union[int, float] from value: adsf' in str(e)
+
+
+@dataclasses.dataclass
+class InnerDataClass:
+    x: int
+    y: str
+    dt: datetime.datetime
+    l: typing.List[int]
+
+
+@datamodel.datamodel
+class DataClassContainer:
+    dc: InnerDataClass
+    dcl: typing.List[InnerDataClass]
+
+
+def test_structuring_of_inner_dataclasses():
+    dt = datamodel.utils.udatetime_tz_to_dateutils_tz(udatetime.now())
+    dc = {'x': 1, 'y': 'a', 'dt': dt, 'l': [1, 2]}
+    d = {'dc': dc, 'dcl': [dc]}
+    dm = DataClassContainer.from_dict(d)
+    assert dm.dc == InnerDataClass(**dc)
+    assert dm.dcl == [InnerDataClass(**dc)]
