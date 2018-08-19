@@ -6,7 +6,7 @@ Basically extension to python 3.7 dataclass, implements methods: `to_json`, `to_
 
 In `from_dict` and `from_json` dates need to be ISO8601 formated strings so `YYYY-MM-DD` and datetimes  RFC3339 formated strings so `YYYY-MM-DDThh:mm:ss.msmsmsTZInfo` or `datetime` objects.
 
-## Basic usage:
+## Basic usage
 
 ```python
 import datetime
