@@ -117,7 +117,7 @@ class FooBarContainer:
 
 ```
 ## Behind the scene
-This package has been build extensibility and performance in mind. Goal is to make registering hooks as easy as possible, and I think decorators are cleanest way to achieve that. Those decorators just add the (un)structure function to global registry. To keep (un)structuring fast, we construct the `from_dict` and `to_serializeable` based on the type annotations of the class using the registry of (type_str -> function). Naturally as other `datamodel`s have these functions defined we can use that info as well. To make this more flexible, `dataclass`'s are structured, and unstructured as well, but they are iterated over to both ways (remember `datamodel` is a full drop in replacement for `dataclass`). So basically using `datamodel` instead of `dataclass` is equivivalent to:
+This package has been build extensibility and performance in mind. Goal is to make registering hooks as easy as possible, and I think decorators are cleanest way to achieve that. Those decorators just add the (un)structure function to global registry. To keep (un)structuring fast, we construct the `from_dict` and `to_serializeable` based on the type annotations of the class using the registry of (type_str -> function). Naturally as other `datamodel`s have these functions defined we can use that info as well. To make this more flexible, `dataclass`'s are structured, and unstructured as well, but they are iterated over to both ways (remember `datamodel` is a full drop in replacement for `dataclass`). So basically using `datamodel` instead of `dataclass` would be something like this:
 
 ```python
 
@@ -132,7 +132,7 @@ def unstructure_FooBar(v):
     pass  # some magic
 
 
-# assuming Foo is also datamodel, but FooBar is not
+# assuming Foo is datamodel, but FooBar is not
 @dataclass
 class A:
     i: int
