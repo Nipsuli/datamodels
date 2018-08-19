@@ -172,44 +172,50 @@ def _is_convert_with_type_str_structure_type(type_str):
     return type_str in {'str', 'int', 'float', 'complex', 'bool'}
 
 
-def _gen_structure_fn(t: Type[T], globs) -> Callable[[V], T]:
+def _gen_structure_expression(t: Type[T], globs) -> Callable[[V], T]:
+    # retrurns str with '{}' so that callers can call
+    # return_str.format(<value expression>)
     type_str = utils.type_to_str(t)
     if _structure_hooks.get(type_str):
         globs[f'structure_{type_str}'] = _structure_hooks.get(type_str)  # nasty mutation, shame on me
-        return f'structure_{type_str}'
+        return f'structure_{type_str}({{}})'
     elif _is_direct_through_structure_type(type_str):
-        return ''
+        return '{}'
     elif _is_convert_with_type_str_structure_type(type_str):
-        return f'{type_str}'
+        return f'{type_str}({{}})'
     elif is_datamodel(t):
         globs[t.__name__] = t  # nasty mutation, shame on me
-        return f'{t.__name__}.from_dict'
+        return f'{t.__name__}.from_dict({{}})'
     elif is_dataclass(t):
-        return f'(lambda v: _structure_dataclass({t.__name__}, v))'
+        return f'_structure_dataclass({t.__name__}, {{}})'
     else:
         origin_type = getattr(t, '__origin__', None)
         if origin_type:
             if origin_type in {list, set, frozenset}:
-                value_fn = _gen_structure_fn(t.__args__[0], globs)
-                return f'(lambda v: {utils.type_to_str(origin_type)}({value_fn}(iv) for iv in v))'
+                value_expr = _gen_structure_expression(t.__args__[0], globs).format('iv')
+                return f'{utils.type_to_str(origin_type)}({value_expr} for iv in {{}})'
             elif origin_type == dict:
-                key_fn = _gen_structure_fn(t.__args__[0], globs)
-                value_fn = _gen_structure_fn(t.__args__[1], globs)
-                return f'(lambda v: {{{key_fn}(k): {value_fn}(iv) for k, iv in v.items()}})'
+                key_expr = _gen_structure_expression(t.__args__[0], globs).format('k')
+                value_expr = _gen_structure_expression(t.__args__[1], globs).format('iv')
+                return utils.MyValTemplate(f'{{ {key_expr}: {value_expr} for k, iv in $MyVal.items() }}')
             elif origin_type == tuple:
                 if len(t.__args__) > 1 and t.__args__[1] == ...:  # tuple of any length Tuple[Any, ...]
-                    return f'(lambda v: tuple({_gen_structure_fn(t.__args__[0], globs)}(iv) for iv in v))'
+                    value_expr = _gen_structure_expression(t.__args__[0], globs).format('iv')
+                    return f'tuple({value_expr} for iv in {{}})'
                 else:  # fixed length tuple, e.g.: Tuple[str, int, str]
-                    builder = ','.join([f'{_gen_structure_fn(it, globs)}(v[{i}])' for i, it in enumerate(t.__args__)])
-                    return f'(lambda v: ({builder},))'
+                    expressions = [f'{_gen_structure_expression(it, globs).format(f"{{}}[{i}]")}'
+                                   for i, it in enumerate(t.__args__)]
+                    expression = f'({",".join(expressions)},)'
+                    return expression.replace('{}', '{0}')
             elif origin_type == typing.Union:
                 if len(t.__args__) == 2 and t.__args__[1] == type(None):  # noqa: E721: this is Optional[T]:
-                    return f'(lambda v: None if v is None else {_gen_structure_fn(t.__args__[0], globs)}(v))'
+                    value_expr = _gen_structure_expression(t.__args__[0], globs).replace('{}', '{0}')
+                    return f'(None if {{0}} is None else {value_expr})'
                 else:
                     # this is bit slower, but well, that's what you get for using Union
                     fname = f'stucture_{type_str}'.replace(' ', '').replace(']', '').replace('[', '_').replace(',', '')
                     globs[fname] = partial(_structure_union, t)
-                    return f'{fname}'
+                    return f'{fname}({{}})'
             else:
                 raise ValueError(f'No origin_type handler for type: {origin_type}')
         else:
@@ -241,7 +247,7 @@ def _build_from_dict(cls: Type[T]) -> Callable[[Type[T], Dict[str, Any]], T]:
                 value_getter = f'd.get("{f.name}", {f.name}_default_factory())'
             else:
                 value_getter = f'd["{f.name}"]'
-            body_lines.append(f'{f.name}={_gen_structure_fn(t, globs)}({value_getter}),\n')
+            body_lines.append(f'{f.name}={_gen_structure_expression(t, globs).format(value_getter)},\n')
 
     return _create_fn('from_dict',
                       ['cls', 'd'],
@@ -290,7 +296,7 @@ def _gen_unstructure_expression(t, globs):
             if origin_type == dict:
                 key_expr = _gen_unstructure_expression(t.__args__[0], globs).format("k")
                 value_expr = _gen_unstructure_expression(t.__args__[1], globs).format("iv")
-                return f'dict(({key_expr}, {value_expr}) for k, iv in {{}}.items())'
+                return utils.MyValTemplate(f'{{ {key_expr}: {value_expr} for k, iv in $MyVal.items() }}')
             elif origin_type in {list, tuple, set, frozenset}:
                 value_expr = _gen_unstructure_expression(t.__args__[0], globs).format("iv")
                 return f'[{value_expr} for iv in {{}}]'

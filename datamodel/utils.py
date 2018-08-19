@@ -1,6 +1,7 @@
 import typing
 import udatetime
 from dateutil.tz import tzoffset
+from string import Template
 
 
 def datetime_from_string(datetime_str):
@@ -64,3 +65,25 @@ def type_to_str(type_or_class: typing.Any) -> str:
             return f'Union[{", ".join(type_to_str(i) for i in type_or_class.__args__)}]'
 
     raise ValueError(f'Could not parse type representation for {type_or_class} of type: {type(type_or_class)}')
+
+
+class MyValTemplate(Template):
+    '''
+    Related to code construction
+    to construct dict comprehension strings with capability to call .format doesn't work
+    so one cannot do:
+    '{ k: iv for k, iv in {0}.items() }'.format('v')
+
+    but instead one needs to do:
+    'dict( (k, iv) for k, iv in {0}.items() )'.format('v')
+
+    which is bad as dict() is way slower than dict comprehension
+
+    So let's subclass string.Template and add format method to replce single value.
+    That's enough as we always give only one arg to .format in expression buildersself.
+
+    So we can use this insead:
+    MyValTemplate('{ k: iv for k, iv in $myval.items() }').format('v')
+    '''
+    def format(self, myval):
+        return self.substitute(MyVal=myval)
