@@ -50,7 +50,7 @@ def type_to_str(type_or_class: typing.Any) -> str:
     if n:
         if n == 'Callable' and type_or_class.__args__[0] != ...:
             # well, not relevant for this, but what the heck...
-            # ofc someone might have some unstructure hook that then  calculates the value
+            # ofc someone might have some unstructure hook that then calculates the value
             return f'{n}[[{", ".join(type_to_str(i) for i in type_or_class.__args__[:-1])}], ' + \
                    f'{type_to_str(type_or_class.__args__[-1])}]'
         else:
