@@ -1,6 +1,6 @@
 # Datamodel
 
-Drop in replacement for python 3.7 `dataclass`. Uses `dataclass` behind the scenes and implements methods: `to_json`, `to_serializeable`, `from_dict` and `from_json` to the classes for (de)serialization. If one uses `datamodel` decorator with kwargs, those kwargs are passed to `dataclass`. One can easily change (de)serialization behaviour with (un)structure hooks.
+Drop in replacement for python 3.7 `dataclass`. Wraps `dataclass` behind the scenes and implements methods: `to_json`, `to_serializeable`, `from_dict` and `from_json` to the classes for (de)serialization. If one uses `datamodel` decorator with kwargs, those kwargs are passed to `dataclass`. One can easily change (de)serialization behaviour with (un)structure hooks.
 
 (De-)Serializes also `datetime.date` and `datetime.datetime` -objects. Conversion to string happens in `to_serializeable`, so it's safe to call `json.dumps` on dicts returned by `to_serializeable`. Basically `to_json` does just that. Also `from_json` is just `from_dict(json.loads(stuff))`.
 
@@ -113,6 +113,57 @@ class FooBarContainer:
     def to_serializeable(self):
         return {
             'foo_bars': [my_foobar_to_raw_data(v) for v in self.foo_bars]
+        }
+
+```
+## Behind the scene
+This package has been build extensibility and performance in mind. Goal is to make registering hooks as easy as possible, and I think decorators are cleanest way to achieve that. Those decorators just add the (un)structure function to global registry. To keep (un)structuring fast, we construct the `from_dict` and `to_serializeable` based on the type annotations of the class using the registry of (type_str -> function). Naturally as other `datamodel`s have these functions defined we can use that info as well. To make this more flexible, `dataclass`'s are structured, and unstructured as well, but they are iterated over to both ways (remember `datamodel` is a full drop in replacement for `dataclass`). So basically using `datamodel` instead of `dataclass` is equivivalent to:
+
+```python
+
+
+@structure_hook('FooBar')
+def structure_FooBar(v):
+    pass  # some magic
+
+
+@unstructure_hook('FooBar')
+def unstructure_FooBar(v):
+    pass  # some magic
+
+
+# assuming Foo is also datamodel, but FooBar is not
+@dataclass
+class A:
+    i: int
+    s: str
+    foo: Foo
+    foo_list: List[Foo]
+    foo_dict: Dict[str, Foo]
+    optional_foo_bar: Optional[FooBar]
+    i_with_default_value: int = 2
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(
+            i=int(d["i"]),
+            s=str(d["s"]),
+            foo=Foo.from_dict(d["foo"]),
+            foo_list=[Foo.from_dict(lv) for lv in d["foo_list"]],
+            foo_dict={str(k): Foo.from_dict(v) for k, v in d["foo_dict"].items()},
+            optional_foo_bar=None if d["optional_foo_bar"] is None else structure_FooBar(d["optional_foo_bar"]),
+            i_with_default_value=int(d.get("i_with_default_value", 2))
+        )
+
+    def to_serializeable(self):
+        return {
+            'i': self.i,
+            's': self.s,
+            'foo': self.foo.to_serializeable(),
+            'foo_list': [iv.to_serializeable() for iv in self.foo_list],
+            'foo_dict': {k, v.to_serializeable() for k, b in self.foo_dict.items()},
+            'optional_foo_bar': None if self.optional_foo_bar is None else unstructure_FooBar(self.optional_foo_bar)
+            'i_with_default_value': self.i_with_default_value
         }
 
 ```
