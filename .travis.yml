@@ -1,0 +1,17 @@
+language: python
+python: 3.7
+dist: xenial
+sudo: true
+
+branches:
+  only:
+  - master
+
+cache:
+  - pip
+
+install:
+  - pip install -r requirements.txt
+
+script:
+  - pytest -v --flake8
