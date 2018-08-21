@@ -216,6 +216,7 @@ Otherwise pep8 but max line length is 120
 ## Todo
 * package to pypi
 * add CI
+* get rid of external dependencies
 
 
 ## Background
