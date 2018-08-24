@@ -2,7 +2,6 @@ import dataclasses
 import datetime
 import typing
 import pytest
-import udatetime
 import datamodel
 
 
@@ -72,7 +71,7 @@ class WithDates:
 
 
 def test_datetime_serialization_deserialization():
-    dt = datamodel.utils.udatetime_tz_to_dateutils_tz(udatetime.now())
+    dt = datetime.datetime.now()
     _assert_serialization_deserialization(
         WithDates(dt.date(), dt),
         expected_dict={'d': dt.date().isoformat(), 'dt': dt.isoformat()},
@@ -450,7 +449,7 @@ class DataClassContainer:
 
 
 def test_structuring_of_inner_dataclasses():
-    dt = datamodel.utils.udatetime_tz_to_dateutils_tz(udatetime.now())
+    dt = datetime.datetime.now()
     dc = {'x': 1, 'y': 'a', 'dt': dt, 'l': [1, 2]}
     d = {'dc': dc, 'dcl': [dc]}
     dm = DataClassContainer.from_dict(d)

@@ -1,25 +1,5 @@
 import typing
-import udatetime
-from dateutil.tz import tzoffset
 from string import Template
-
-
-def datetime_from_string(datetime_str):
-    # as udatetime seems to suck might write the parser my self ...
-    # i had so high hopes! Damn you udatetime!
-    dt = udatetime.from_string(datetime_str)
-    return udatetime_tz_to_dateutils_tz(dt)
-
-
-def udatetime_tz_to_dateutils_tz(dt):
-    # fix tzinfo as rfc3339.FixedOffset_type isn't copyable
-    # https://github.com/freach/udatetime/issues/28
-    if type(dt.tzinfo) == udatetime.rfc3339.TZFixedOffset:
-        tz_str = str(dt.tzinfo)
-        tzinfo = tzoffset(None, int(f'{tz_str[-6]}1') * (int(f'{tz_str[-5:-3]}') * 3600 + int(f'{tz_str[-2:]}') * 60))
-        return dt.replace(tzinfo=tzinfo)
-    else:
-        return dt
 
 
 _type_map = {

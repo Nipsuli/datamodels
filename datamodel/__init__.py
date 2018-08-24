@@ -83,23 +83,23 @@ def _byte_decode(v):
 
 
 @structure_hook('datetime')
-def _structure_date(v: Union[datetime.datetime, str]) -> datetime.datetime:
+def _structure_datetime(v: Union[datetime.datetime, str]) -> datetime.datetime:
     if type(v) == datetime.datetime:
         return v
     elif type(v) == str:
-        return utils.datetime_from_string(v)
+        return datetime.datetime.fromisoformat(v)
     else:
         raise ValueError(f'Cannot parse {v} as datetime')
 
 
 @structure_hook('date')
-def _structure_datetime(v: Union[datetime.datetime, datetime.date, str]) -> datetime.date:
+def _structure_date(v: Union[datetime.datetime, datetime.date, str]) -> datetime.date:
     if type(v) == datetime.datetime:
         return v.date()
     elif type(v) == datetime.date:
         return v
-    elif type(v) == str and v[4] == v[7] == '-':
-        return datetime.date(int(v[:4]), int(v[5:7]), int(v[8:10]))
+    elif type(v) == str:
+        return datetime.date.fromisoformat(v)
     else:
         raise ValueError(f'Cannot parse {v} as date')
 
