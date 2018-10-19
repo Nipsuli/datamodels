@@ -12,7 +12,7 @@ In `from_json` dates need to be ISO8601 formated strings (`YYYY-MM-DD`) and date
 import datetime
 from typing import List
 from dataclasses import is_dataclass
-from datamodel import datamodel
+from datamodels import datamodel
 from dateutil.tz import tzoffset
 
 
@@ -68,7 +68,7 @@ For missing types one can register custom (un)structuring functions with `struct
 
 ```python
 import typing
-from datamodel import datamodel, structure_hook, unstructure_hook
+from datamodels import datamodel, structure_hook, unstructure_hook
 
 class FooBar:
     pass
@@ -177,7 +177,7 @@ There exists default extension `frozen` to make `datamodels` immutable by defaul
 
 ```python
 import datamodel.extensions.frozen
-from datamodel import datamodel
+from datamodels import datamodel
 
 @datamodel
 class Simple:

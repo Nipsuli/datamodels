@@ -1,18 +1,18 @@
 import dataclasses
 import pytest
-import datamodel
+import datamodels
 
 
 @pytest.fixture
 def extension_cleanup():
     yield
-    datamodel._dataclass_kwargs_extensions = []
+    datamodels._dataclass_kwargs_extensions = []
 
 
 def test_frozen_instances_are_frozen_by_default(extension_cleanup):
-    import datamodel.extensions.frozen
+    import datamodels.extensions.frozen
 
-    @datamodel.datamodel
+    @datamodels.datamodel
     class Simple:
         x: int
         y: str
@@ -25,9 +25,9 @@ def test_frozen_instances_are_frozen_by_default(extension_cleanup):
 
 
 def test_frozen_frozen_flag_can_be_owerwritten(extension_cleanup):
-    import datamodel.extensions.frozen
+    import datamodels.extensions.frozen
 
-    @datamodel.datamodel(frozen=False)
+    @datamodels.datamodel(frozen=False)
     class SimpleNonFrozen:
         x: int
         y: str

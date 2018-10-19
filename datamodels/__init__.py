@@ -6,7 +6,7 @@ from functools import partial
 from typing import Callable, Dict, Any, TypeVar, Type, Union
 from dataclasses import (_is_dataclass_instance, fields, dataclass, is_dataclass, _set_new_attribute, _create_fn,
                          _MISSING_TYPE)
-from datamodel import utils
+from datamodels import utils
 
 
 T = TypeVar('T')

@@ -1,6 +1,6 @@
-import datamodel
+import datamodels
 
 
-@datamodel.dataclass_kwargs_extension
+@datamodels.dataclass_kwargs_extension
 def make_datamodels_frozen_by_default(kwargs):
     return {**{'frozen': True}, **kwargs}

@@ -2,10 +2,10 @@ import dataclasses
 import datetime
 import typing
 import pytest
-import datamodel
+import datamodels
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class Simple:
     x: int
     y: str
@@ -35,7 +35,7 @@ def test_type_to_str():
         (typing.Callable[[str, str], typing.List[str]], 'Callable[[str, str], List[str]]'),
     ]
     for test, expected in te:
-        assert expected == datamodel.utils.type_to_str(test)
+        assert expected == datamodels.utils.type_to_str(test)
 
 
 def _assert_serialization_deserialization(obj, expected_dict, expected_json):
@@ -64,7 +64,7 @@ def test_simple_model_serialization_converts_basic_types():
     assert dm.y == '2'
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class WithDates:
     d: datetime.date
     dt: datetime.datetime
@@ -79,7 +79,7 @@ def test_datetime_serialization_deserialization():
     )
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class SimpleWithCollections:
     x: typing.List[str]
     y: typing.Dict[str, int]
@@ -93,7 +93,7 @@ def test_simple_collections_serialization_deserialization():
     )
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class NestedDataClasses:
     a: Simple
     b: typing.List[Simple]
@@ -121,7 +121,7 @@ def test_nested_dataclasses():
     )
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class NestedDataClassesList:
     a: typing.List[Simple]
 
@@ -137,7 +137,7 @@ def test_nested_dataclasses_dataclass_only_in_nested_field():
     )
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class WithDefaultValues:
     x: int
     y: int = 2
@@ -169,7 +169,7 @@ class Foo:
     pass
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class AnyContainer:
     a: typing.Any
 
@@ -181,11 +181,11 @@ def test_any_goes_through_both_ways():
 
 
 def test_hooks_can_overwrite():
-    @datamodel.structure_hook('str')
+    @datamodels.structure_hook('str')
     def capitalize(v):
         return v.capitalize()
 
-    @datamodel.datamodel
+    @datamodels.datamodel
     class Simple:
         x: int
         y: str
@@ -193,11 +193,11 @@ def test_hooks_can_overwrite():
     a = Simple.from_dict({'x': 1, 'y': 'foo'})
     assert a.y == 'Foo'
 
-    @datamodel.structure_hook('str')
+    @datamodels.structure_hook('str')
     def take_first(v):
         return v[0]
 
-    @datamodel.datamodel
+    @datamodels.datamodel
     class Simple:
         x: int
         y: str
@@ -205,9 +205,9 @@ def test_hooks_can_overwrite():
     a = Simple.from_dict({'x': 1, 'y': 'foo'})
     assert a.y == 'f'
 
-    datamodel._structure_hooks.pop('str')
+    datamodels._structure_hooks.pop('str')
 
-    @datamodel.datamodel
+    @datamodels.datamodel
     class Simple:
         x: int
         y: str
@@ -221,12 +221,12 @@ CapitalStr = typing.NewType('CapitalStr', str)
 
 def test_custom_hooks_for_custom_defined_types():
     # one needs to define both
-    @datamodel.structure_hook('CapitalStr')
-    @datamodel.unstructure_hook('CapitalStr')
+    @datamodels.structure_hook('CapitalStr')
+    @datamodels.unstructure_hook('CapitalStr')
     def capitalize(v):
         return v.capitalize()
 
-    @datamodel.datamodel
+    @datamodels.datamodel
     class WithCustomType:
         foo: str
         faa: CapitalStr
@@ -234,13 +234,13 @@ def test_custom_hooks_for_custom_defined_types():
     a = WithCustomType.from_dict({'foo': 'monkey', 'faa': 'monkey'})
     assert a.foo == 'monkey'
     assert a.faa == 'Monkey'
-    datamodel._structure_hooks.pop('CapitalStr')
+    datamodels._structure_hooks.pop('CapitalStr')
 
 
 def test_custom_hooks_are_required_for_custom_defined_types():
 
     with pytest.raises(ValueError) as e:
-        @datamodel.datamodel
+        @datamodels.datamodel
         class WithCustomType:
             foo: str
             faa: CapitalStr
@@ -248,7 +248,7 @@ def test_custom_hooks_are_required_for_custom_defined_types():
     assert 'No structure hook function for type: CapitalStr' in str(e)
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class PrimitiveValues:
     s: str
     i: int
@@ -279,7 +279,7 @@ def test_primitive_values_from_dict():
     assert a == PrimitiveValues.from_json(expected.to_json())
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class WithSets:
     a: typing.Set[int]
     b: typing.FrozenSet[int]
@@ -299,7 +299,7 @@ def test_structuring_sets_from_other_iterables():
     assert dm.b == frozenset({5, 6})
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class WithTuples:
     a: typing.Tuple[int, ...]
     b: typing.Tuple[int, str, str]
@@ -332,7 +332,7 @@ def test_structuring_tuples_from_other_iterables():
     )
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class WithNoInit:
     a: int
     b: int = dataclasses.field(init=False, default=2)
@@ -347,7 +347,7 @@ def test_no_init_values():
     assert dm.c == 3
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class WithOptional:
     x: typing.Optional[int]
 
@@ -371,7 +371,7 @@ def test_structure_optional():
     )
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class WithOptionalObject:
     x: typing.Optional[Simple]
 
@@ -395,7 +395,7 @@ def test_structure_optional_with_object():
     )
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class WithUnion:
     x: typing.Union[int, str]
 
@@ -419,7 +419,7 @@ def test_stucture_union():
     )
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class WithUnion2:
     x: typing.Union[int, float]
 
@@ -442,7 +442,7 @@ class InnerDataClass:
     l: typing.List[int]
 
 
-@datamodel.datamodel
+@datamodels.datamodel
 class DataClassContainer:
     dc: InnerDataClass
     dcl: typing.List[InnerDataClass]
