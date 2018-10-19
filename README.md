@@ -6,6 +6,9 @@ Drop in replacement for python 3.7 `dataclass`. Wraps `dataclass` behind the sce
 
 In `from_json` dates need to be ISO8601 formated strings (`YYYY-MM-DD`) and datetimes  RFC3339 formated strings (`YYYY-MM-DDThh:mm:ss.msmsmsTZInfo`), `from_dict` accepts in addition `datetime.datetime` and `datetime.date` objects.
 
+## install
+`pip install git+https://github.com/Nipsuli/datamodels.git`
+
 ## Basic usage
 
 ```python
