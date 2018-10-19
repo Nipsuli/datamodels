@@ -4,10 +4,36 @@ import datetime
 import typing
 from functools import partial
 from typing import Callable, Dict, Any, TypeVar, Type, Union
-from dataclasses import (_is_dataclass_instance, fields, dataclass, is_dataclass, _set_new_attribute, _create_fn,
-                         _MISSING_TYPE)
+from dataclasses import (  # noqa: F401: needed for the __all__
+    field,
+    Field,
+    FrozenInstanceError,
+    InitVar,
+    MISSING,
+    asdict,
+    astuple,
+    make_dataclass,
+    replace,
+)
+from dataclasses import (
+    dataclass,
+    fields,
+    is_dataclass,
+    _is_dataclass_instance,
+    _set_new_attribute,
+    _create_fn,
+    _MISSING_TYPE,
+    __all__ as dataclass_all
+)
 from datamodels import utils
 
+
+__all__ = dataclass_all + [
+    'datamodel',
+    'structure_hook',
+    'unstructure_hook',
+    'dataclass_kwargs_extension'
+]
 
 T = TypeVar('T')
 V = TypeVar('V')
@@ -84,9 +110,9 @@ def _byte_decode(v):
 
 @structure_hook('datetime')
 def _structure_datetime(v: Union[datetime.datetime, str]) -> datetime.datetime:
-    if type(v) == datetime.datetime:
+    if isinstance(v, datetime.datetime):
         return v
-    elif type(v) == str:
+    elif isinstance(v, str):
         return datetime.datetime.fromisoformat(v)
     else:
         raise ValueError(f'Cannot parse {v} as datetime')
@@ -94,11 +120,11 @@ def _structure_datetime(v: Union[datetime.datetime, str]) -> datetime.datetime:
 
 @structure_hook('date')
 def _structure_date(v: Union[datetime.datetime, datetime.date, str]) -> datetime.date:
-    if type(v) == datetime.datetime:
+    if isinstance(v, datetime.datetime):
         return v.date()
-    elif type(v) == datetime.date:
+    elif isinstance(v, datetime.date):
         return v
-    elif type(v) == str:
+    elif isinstance(v, str):
         return datetime.date.fromisoformat(v)
     else:
         raise ValueError(f'Cannot parse {v} as date')
@@ -106,7 +132,7 @@ def _structure_date(v: Union[datetime.datetime, datetime.date, str]) -> datetime
 
 @structure_hook('bytes')
 def _structure_bytes(v):
-    if type(v) == str:
+    if isinstance(v, str):
         return bytes(v, 'utf8')
     else:
         return bytes(v)
@@ -172,7 +198,7 @@ def _is_convert_with_type_str_structure_type(type_str):
     return type_str in {'str', 'int', 'float', 'complex', 'bool'}
 
 
-def _gen_structure_expression(t: Type[T], globs) -> Callable[[V], T]:
+def _gen_structure_expression(t: Type[T], globs) -> str:
     # retrurns str with '{}' so that callers can call
     # return_str.format(<value expression>)
     type_str = utils.type_to_str(t)

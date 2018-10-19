@@ -60,10 +60,10 @@ class MyValTemplate(Template):
     which is bad as dict() is way slower than dict comprehension
 
     So let's subclass string.Template and add format method to replce single value.
-    That's enough as we always give only one arg to .format in expression buildersself.
+    That's enough as we always give only one arg to .format in expression builders.
 
     So we can use this insead:
-    MyValTemplate('{ k: iv for k, iv in $myval.items() }').format('v')
+    MyValTemplate('{ k: iv for k, iv in $MyVal.items() }').format('v')
     '''
     def format(self, myval):
         return self.substitute(MyVal=myval)
