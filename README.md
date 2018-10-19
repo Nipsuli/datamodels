@@ -215,7 +215,6 @@ Run coverage: `docker-compose run dev pytest -v --cov-report html --cov-report t
 Otherwise pep8 but max line length is 120
 
 ## Todo
-* package
 * add to pypi
 
 
