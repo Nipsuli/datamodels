@@ -39,6 +39,7 @@ assert json_str == '{"x": 1, "y": ["a", "b"], "dt": "2018-07-02T12:00:00+00:00"}
 
 Supported types:
 * Primitive values, `from_dict` runs them through the basic functions with same names
+  * `str`, `int`, `float`, `complex`, `bool`, `bytes`
   * e.g. if type is `int` we call `int(v)` to the value when structuring
 * `Any` just through and through to both directions
 * `Optional`
@@ -214,8 +215,8 @@ Run coverage: `docker-compose run dev pytest -v --cov-report html --cov-report t
 Otherwise pep8 but max line length is 120
 
 ## Todo
-* package to pypi
-* add CI
+* package
+* add to pypi
 
 
 ## Background
