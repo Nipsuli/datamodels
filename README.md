@@ -224,6 +224,6 @@ This package is based on ideas used in similar internal package at [PrompterAI](
 
 Naturally that one had little bit more of functionalities as it was based on `attrs`, but I feel that `dataclass` provides enough functionalities for most cases, and it's standard library. Decided to build this one from scratch, instead of just publishing the PrompterAI `datamodel` module as that one also relied on other internal modules, example for `datetime` handling.
 
-There exists also [dataclasses-json](https://github.com/lidatong/dataclasses-json) package. But it doesn't seem to handle `datetimes` (at the time of writing) and it's not extendable. Also I just don't like that one needs to inherit from the `DataClassJsonMixin`.
+There exists also [dataclasses-json](https://github.com/lidatong/dataclasses-json) package. But it doesn't seem to handle `datetimes` (at the time of writing) and it's not extendable.
 
 About the extendability, I really like the possibility in `cattrs` to add custom hooks with `register_unstructure_hook` and `register_structure_hook` which I'm bit trying to mimic with the `structure_hook` and `unstructure_hook` decorators.
