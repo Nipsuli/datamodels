@@ -111,7 +111,7 @@ class FooBarContainer:
     @classmethod
     def from_dict(cls, d):
         return cls(
-            foo_bars=list(my_foobar_from_raw_data(v) for v in d["foo_bars"])
+            foo_bars=[my_foobar_from_raw_data(v) for v in d["foo_bars"]]
         )
 
     def to_serializeable(self):
@@ -172,41 +172,6 @@ class A:
 
 ```
 
-## Extensions
-
-If one wants to have some default kwargs passed to `dataclass` decorator one can register functions with `datamodel.dataclass_kwargs_extension`. The decorated functions will receive all kwargs given to `datamodel` decorator and must return dict containing the new kwags.
-
-There exists default extension `frozen` to make `datamodels` immutable by default. Same as decorating each class with `@datamodel(frozen=True)`
-
-```python
-import datamodel.extensions.frozen
-from datamodels import datamodel
-
-@datamodel
-class Simple:
-    x: int
-    y: str
-
-
-a = Simple(1, '2')
-a.x = 2  # raises dataclasses.FrozenInstanceError
-
-assert a.x == 1
-assert a.y == '2'
-```
-
-## JSON encoder
-
-One can set custom JSON encoder if one wants so. This one is passed to `json.dumps` as `cls` kwarg.
-
-```python
-class MyAwsomeJSONEncoder(json.JSONEncoder):
-    # your special implementations
-    pass
-
-datamodel.set_json_encoder(MyAwsomeJSONEncoder)
-```
-
 ## Tests
 
 Using docker run test wathcer: `docker-compose run dev ptw -v`
@@ -226,6 +191,6 @@ This package is based on ideas used in similar internal package at [PrompterAI](
 
 Naturally that one had little bit more of functionalities as it was based on `attrs`, but I feel that `dataclass` provides enough functionalities for most cases, and it's standard library. Decided to build this one from scratch, instead of just publishing the PrompterAI `datamodel` module as that one also relied on other internal modules, example for `datetime` handling.
 
-There exists also [dataclasses-json](https://github.com/lidatong/dataclasses-json) package. But it doesn't seem to handle `datetimes` (at the time of writing) and it's not extendable.
+There exists also [dataclasses-json](https://github.com/lidatong/dataclasses-json) package. But it doesn't seem to handle `datetimes` (at the time of writing) and it's not that easily extendable with additional types.
 
 About the extendability, I really like the possibility in `cattrs` to add custom hooks with `register_unstructure_hook` and `register_structure_hook` which I'm bit trying to mimic with the `structure_hook` and `unstructure_hook` decorators.

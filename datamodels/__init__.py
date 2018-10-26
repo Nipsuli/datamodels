@@ -31,8 +31,7 @@ from datamodels import utils
 __all__ = dataclass_all + [
     'datamodel',
     'structure_hook',
-    'unstructure_hook',
-    'dataclass_kwargs_extension'
+    'unstructure_hook'
 ]
 
 T = TypeVar('T')
@@ -45,16 +44,10 @@ ISO8601str = str
 _json_encoder = json.JSONEncoder
 _structure_hooks = {}
 _unstructure_hooks = {}
-_dataclass_kwargs_extensions = []
 
 
 def is_datamodel(obj):
     return is_dataclass(obj) and hasattr(obj, 'to_serializeable') and hasattr(obj, 'from_dict')
-
-
-def set_json_encoder(json_encoder):
-    global _json_encoder
-    _json_encoder = json_encoder
 
 
 def _register_structure_hook(type_name_str, decoder):
@@ -65,11 +58,6 @@ def _register_structure_hook(type_name_str, decoder):
 def _register_unstructure_hook(type_name_str, decoder):
     global _unstructure_hooks
     _unstructure_hooks[type_name_str] = decoder
-
-
-def register_dataclass_kwargs_fn(fn):
-    global _dataclass_kwargs_extensions
-    _dataclass_kwargs_extensions.append(fn)
 
 
 def structure_hook(type_name_str: str):
@@ -84,11 +72,6 @@ def unstructure_hook(type_name_str: str):
         _register_unstructure_hook(type_name_str, fn)
         return fn
     return wrapper
-
-
-def dataclass_kwargs_extension(fn):
-    register_dataclass_kwargs_fn(fn)
-    return fn
 
 
 # default hooks
@@ -366,17 +349,22 @@ def _json_dump(obj: T) -> JSONstr:
 _allowed_dataclasskws = ['init', 'repr', 'eq', 'order', 'unsafe_hash', 'frozen']
 
 
-def datamodel(_cls=None, **kwargs):
-    for fn in _dataclass_kwargs_extensions:
-        kwargs = fn(kwargs)
+def datamodel(_cls=None, *, pre_hooks=[], post_hooks=[], **kwargs):
 
     def wrapper(Cls):
+        for hook in pre_hooks:
+            Cls = hook(Cls, kwargs)
+
         base = dataclass(**{k: v for k, v in kwargs.items() if k in _allowed_dataclasskws})(Cls)
         # never overwrite existing attribute
         _set_new_attribute(base, 'to_serializeable', _build_to_serializeable(Cls))
         _set_new_attribute(base, 'from_dict', classmethod(_build_from_dict(Cls)))
         _set_new_attribute(base, 'to_json', _json_dump)
         _set_new_attribute(base, 'from_json', classmethod(_json_load))
+
+        for hook in post_hooks:
+            base = hook(base, kwargs)
+
         return base
 
     # See if we're being called as @datamodel or @datamodel()
