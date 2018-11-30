@@ -1,4 +1,4 @@
-# Datamodel
+# Datamodels
 
 Drop in replacement for python 3.7 `dataclass`. Wraps `dataclass` behind the scenes and implements methods: `to_json`, `to_serializeable`, `from_dict` and `from_json` to the classes for (de)serialization. If one uses `datamodel` decorator with kwargs, those kwargs are passed to `dataclass`. One can easily change (de)serialization behaviour with (un)structure hooks.
 
